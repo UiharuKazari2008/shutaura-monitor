@@ -148,23 +148,8 @@ FROM
     } else {
         sqlNoResponse = false;
         await databaseStatus.rows.forEach(row => {
-            if (parseInt(row.Seconds_Behind_Master.toString()) >= 300) {
-                watchDogFaults.push(`🚨 Database is critically behind by ${row.Seconds_Behind_Master} sec`);
-                if (!sqlFallingBehind) {
-                    if (!alarminhibited) {
-                        discordClient.createMessage(systemglobal.Discord_Alarm_Channel, `🆘 ALARM! ${systemglobal.DatabaseName} Database is critically behind by ${row.Seconds_Behind_Master} sec`)
-                            .catch(err => {
-                                Logger.printLine("StatusUpdate", `Error sending message for alarm : ${err.message}`, "error", err)
-                            })
-                            .then(() => {
-                                sqlFallingBehind = true;
-                            })
-                    } else {
-                        sqlFallingBehind = true;
-                    }
-                }
-            } else if (parseInt(row.Seconds_Behind_Master.toString()) >= 60) {
-                watchDogWarnings.push(`⚠️ Database is slagging behind by ${row.Seconds_Behind_Master} sec`);
+            if (parseInt(row.Seconds_Behind_Master.toString()) >= 60) {
+                watchDogWarnings.push(`⚠️ Database behind by ${row.Seconds_Behind_Master} sec`);
             } else {
                 sqlFallingBehind = true;
             }
