@@ -299,19 +299,19 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
             })
         }
 
-        if (input && input.errors.length > 0) {
+        if (input && input.errors[2].length > 0) {
             embed.fields.push({
                 "name": `❌ ${(input.error[1] === 1) ? 'SQL ' : (input.error[1] === 2) ? 'I/O ' : ''}Error Log (${input.error[0]})`,
                 "value": `\`\`\`\n${input.error[2].join('\n')}\`\`\``.substring(0, 1024)
             })
         }
-        if (input && input.sqlState.length > 0) {
+        if (input && input.sqlState[1].length > 0) {
             embed.fields.push({
-                "name": `⚙️ SQL Status (${input.ioState[0]})`,
+                "name": `⚙️ SQL Status (${input.sqlState[0]})`,
                 "value": `\`\`\`\n${input.sqlState[1].join('\n')}\`\`\``.substring(0, 1024)
             })
         }
-        if (input && input.ioState.length > 0) {
+        if (input && input.ioState[1].length > 0) {
             embed.fields.push({
                 "name": `💾 I/O Status (${input.ioState[0]})`,
                 "value": `\`\`\`\n${input.ioState[1].join('\n')}\`\`\``.substring(0, 1024)
