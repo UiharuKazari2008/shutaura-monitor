@@ -108,37 +108,13 @@ discordClient.registerCommand("status", async function (msg,args) {
 
 
 async function updateIndicators() {
-    const databaseStatus = await db.query(`SELECT
-    smi.host AS Master_Host,
-    smi.master_log_name AS Master_Log_File,
-    rcs.service_state AS Slave_IO_Running,
-    rss.service_state AS Slave_SQL_Running,
-    t.processlist_time AS Seconds_Behind_Master,
-    rcs.last_error_number AS Last_IO_Errno,
-    rcs.last_error_message AS Last_IO_Error,
-    rss.last_error_number AS Last_SQL_Errno,
-    rss.last_error_message AS Last_SQL_Error,
-    tc.processlist_state AS  Slave_IO_State,
-    t.processlist_state AS  Slave_SQL_Running_State
-
-FROM
-    mysql.slave_master_info smi
-        JOIN
-    performance_schema.replication_connection_status rcs USING (channel_name)
-        LEFT JOIN
-    performance_schema.replication_applier_status_by_worker rss USING (channel_name)
-        LEFT JOIN
-    performance_schema.threads t ON (rss.thread_id = t.thread_id)
-        LEFT JOIN
-    performance_schema.threads tc ON (rcs.thread_id = tc.thread_id);`)
-
-
-
+    const databaseStatus = await db.query(`SHOW SLAVE STATUS;`);
     let addUptimeWarning = false;
     let watchDogWarnings = [];
     let watchDogFaults = [];
     let ioState = [];
     let sqlState = [];
+    let errors = [];
     if (!addUptimeWarning && process.uptime() <= 15 * 60) {
         watchDogWarnings.push(`🔕 Watchdog system was reset <t:${bootTime}:R>!`)
         addUptimeWarning = true
@@ -150,17 +126,17 @@ FROM
         await databaseStatus.rows.forEach(row => {
             if (row.Seconds_Behind_Master !== null) {
                 if (parseInt(row.Seconds_Behind_Master.toString()) >= 300) {
-                    watchDogWarnings.push(`⚠️ Database behind by ${row.Seconds_Behind_Master} sec`);
+                    watchDogWarnings.push(`⚠️ Channel "${row.Channel_Name.toUpperCase()}" is behind by ${row.Seconds_Behind_Master} sec`);
                 } else {
                     sqlFallingBehind = true;
                 }
             }
 
             if (row.Last_SQL_Errno !== 0) {
-                watchDogFaults.push(`🚨 Database replication error: ${row.Last_SQL_Errno}`);
+                watchDogFaults.push(`🚨 Channel "${row.Channel_Name.toUpperCase()}" replication error: ${row.Last_SQL_Errno}`);
                 if (!sqlWriteFail) {
                     if (!alarminhibited) {
-                        discordClient.createMessage(systemglobal.Discord_Alarm_Channel, `🆘 ALARM! ${systemglobal.DatabaseName} Database replication error\n\`${row.Last_SQL_Error}\``)
+                        discordClient.createMessage(systemglobal.Discord_Alarm_Channel, `🆘 ALARM! ${systemglobal.DatabaseName} Database Channel "${row.Channel_Name.toUpperCase()}" replication error\n\`${row.Last_SQL_Error}\``)
                             .catch(err => {
                                 Logger.printLine("StatusUpdate", `Error sending message for alarm : ${err.message}`, "error", err)
                             })
@@ -172,11 +148,14 @@ FROM
                     }
                 }
             }
-            if (row.Slave_SQL_Running !== 'ON') {
-                watchDogFaults.push(`🛑 Database has stopped replication!`);
+            if (row.Last_SQL_Error) {
+                errors.push([row.Channel_Name, 1, row.Last_SQL_Error])
+            }
+            if (row.Slave_SQL_Running !== 'Yes') {
+                watchDogFaults.push(`🛑 Channel "${row.Channel_Name.toUpperCase()}" has stopped!`);
                 if (!sqlWriteFail) {
                     if (!alarminhibited) {
-                        discordClient.createMessage(systemglobal.Discord_Alarm_Channel, `🆘 ALARM! ${systemglobal.DatabaseName} Database has stopped replication!`)
+                        discordClient.createMessage(systemglobal.Discord_Alarm_Channel, `🆘 ALARM! ${systemglobal.DatabaseName} Database Channel "${row.Channel_Name.toUpperCase()}" has stopped replication!`)
                             .catch(err => {
                                 Logger.printLine("StatusUpdate", `Error sending message for alarm : ${err.message}`, "error", err)
                             })
@@ -192,10 +171,10 @@ FROM
             }
 
             if (row.Last_IO_Errno !== 0) {
-                watchDogFaults.push(`🚨 Database IO error: ${row.Last_IO_Errno}`);
+                watchDogFaults.push(`🚨 Channel "${row.Channel_Name.toUpperCase()}" IO error: ${row.Last_IO_Errno}`);
                 if (!sqlIOFail) {
                     if (!alarminhibited) {
-                        discordClient.createMessage(systemglobal.Discord_Alarm_Channel, `🆘 ALARM! ${systemglobal.DatabaseName} Database IO error\n\`${row.Last_IO_Error}\``)
+                        discordClient.createMessage(systemglobal.Discord_Alarm_Channel, `🆘 ALARM! ${systemglobal.DatabaseName} Database Channel "${row.Channel_Name.toUpperCase()}" IO error\n\`${row.Last_IO_Error}\``)
                             .catch(err => {
                                 Logger.printLine("StatusUpdate", `Error sending message for alarm : ${err.message}`, "error", err)
                             })
@@ -207,11 +186,15 @@ FROM
                     }
                 }
             }
-            if (row.Slave_IO_Running !== 'ON') {
-                watchDogFaults.push(`🛑 Database IO Failure!`);
+
+            if (row.Last_IO_Error) {
+                errors.push([row.Channel_Name, 2, row.Last_IO_Error])
+            }
+            if (row.Slave_IO_Running !== 'Yes') {
+                watchDogFaults.push(`🛑 Channel "${row.Channel_Name.toUpperCase()}" IO Failure!`);
                 if (!sqlIOFail) {
                     if (!alarminhibited) {
-                        discordClient.createMessage(systemglobal.Discord_Alarm_Channel, `🆘 ALARM! ${systemglobal.DatabaseName} Database IO Failure!`)
+                        discordClient.createMessage(systemglobal.Discord_Alarm_Channel, `🆘 ALARM! ${systemglobal.DatabaseName} Database Channel "${row.Channel_Name.toUpperCase()}" IO Failure!`)
                             .catch(err => {
                                 Logger.printLine("StatusUpdate", `Error sending message for alarm : ${err.message}`, "error", err)
                             })
@@ -225,10 +208,10 @@ FROM
             } else {
                 sqlIOFail = true;
             }
-            if (row.Slave_IO_State !== 'Waiting for source to send event')
-                ioState.push(row.Slave_IO_State);
-            if (row.Slave_SQL_Running_State !== 'Replica has read all relay log; waiting for more updates')
-                sqlState.push(row.Slave_SQL_Running_State);
+            if (row.Slave_IO_State !== null && row.Slave_IO_State !== 'Waiting for source to send event' && row.Slave_IO_State.length > 0)
+                ioState.push([row.Channel_Name, row.Slave_IO_State]);
+            if (row.Slave_SQL_Running_State !== null && row.Slave_SQL_Running_State !== 'Replica has read all relay log; waiting for more updates' && row.Slave_SQL_Running_State.length > 0)
+                sqlState.push([row.Channel_Name, row.Slave_SQL_Running_State]);
         })
     }
 
@@ -239,7 +222,7 @@ FROM
                 guilds.forEach(function (guild) {
                     if (localKeys.indexOf("statusgen-" + guild.id) !== -1 ) {
                         updateStatus({
-                            ioState, sqlState,
+                            ioState, sqlState, errors,
                             warnings: watchDogWarnings,
                             faults: watchDogFaults
                         }, true, guild.id)
@@ -303,7 +286,7 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
             embed.color = 16771840
             embed.title = `🔶 Possible Issues Detected`
             embed.fields.unshift({
-                "name": `⚠ Active Warnings`,
+                "name": `⚠️ Active Warnings`,
                 "value": warnings.join('\n').substring(0, 1024)
             })
         }
@@ -316,16 +299,22 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
             })
         }
 
+        if (input && input.errors.length > 0) {
+            embed.fields.push({
+                "name": `❌ ${(input.error[1] === 1) ? 'SQL ' : (input.error[1] === 2) ? 'I/O ' : ''}Error Log (${input.error[0]})`,
+                "value": `\`\`\`\n${input.error[2].join('\n')}\`\`\``.substring(0, 1024)
+            })
+        }
         if (input && input.sqlState.length > 0) {
             embed.fields.push({
-                "name": `⚙️ SQL Status`,
-                "value": `\`\`\`\n${input.sqlState.join('\n')}\`\`\``.substring(0, 1024)
+                "name": `⚙️ SQL Status (${input.ioState[0]})`,
+                "value": `\`\`\`\n${input.sqlState[1].join('\n')}\`\`\``.substring(0, 1024)
             })
         }
         if (input && input.ioState.length > 0) {
             embed.fields.push({
-                "name": `💾 I/O Status`,
-                "value": `\`\`\`\n${input.ioState.join('\n')}\`\`\``.substring(0, 1024)
+                "name": `💾 I/O Status (${input.ioState[0]})`,
+                "value": `\`\`\`\n${input.ioState[1].join('\n')}\`\`\``.substring(0, 1024)
             })
         }
 
