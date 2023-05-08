@@ -148,10 +148,12 @@ FROM
     } else {
         sqlNoResponse = false;
         await databaseStatus.rows.forEach(row => {
-            if (parseInt(row.Seconds_Behind_Master.toString()) >= 300) {
-                watchDogWarnings.push(`⚠️ Database behind by ${row.Seconds_Behind_Master} sec`);
-            } else {
-                sqlFallingBehind = true;
+            if (row.Seconds_Behind_Master !== null) {
+                if (parseInt(row.Seconds_Behind_Master.toString()) >= 300) {
+                    watchDogWarnings.push(`⚠️ Database behind by ${row.Seconds_Behind_Master} sec`);
+                } else {
+                    sqlFallingBehind = true;
+                }
             }
 
             if (row.Last_SQL_Errno !== 0) {
@@ -307,7 +309,7 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
         }
         if (faults.length > 0) {
             embed.color = 16711680
-            embed.title = `🔶 Active Faults Detected`
+            embed.title = `⛔ Active Faults Detected`
             embed.fields.unshift({
                 "name": `⛔ Active Alarms`,
                 "value": faults.join('\n').substring(0, 1024)
