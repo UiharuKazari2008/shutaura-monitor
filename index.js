@@ -148,7 +148,7 @@ FROM
     } else {
         sqlNoResponse = false;
         await databaseStatus.rows.forEach(row => {
-            if (parseInt(row.Seconds_Behind_Master.toString()) >= 60) {
+            if (parseInt(row.Seconds_Behind_Master.toString()) >= 300) {
                 watchDogWarnings.push(`⚠️ Database behind by ${row.Seconds_Behind_Master} sec`);
             } else {
                 sqlFallingBehind = true;
@@ -206,10 +206,10 @@ FROM
                 }
             }
             if (row.Slave_IO_Running !== 'ON') {
-                watchDogFaults.push(`🛑 Database Shutdown!`);
+                watchDogFaults.push(`🛑 Database IO Failure!`);
                 if (!sqlIOFail) {
                     if (!alarminhibited) {
-                        discordClient.createMessage(systemglobal.Discord_Alarm_Channel, `🆘 ALARM! ${systemglobal.DatabaseName} Database Shutdown!`)
+                        discordClient.createMessage(systemglobal.Discord_Alarm_Channel, `🆘 ALARM! ${systemglobal.DatabaseName} Database IO Failure!`)
                             .catch(err => {
                                 Logger.printLine("StatusUpdate", `Error sending message for alarm : ${err.message}`, "error", err)
                             })
@@ -223,8 +223,10 @@ FROM
             } else {
                 sqlIOFail = true;
             }
-            ioState.push(row.Slave_IO_State);
-            sqlState.push(row.Slave_SQL_Running_State);
+            if (row.Slave_IO_State !== 'Waiting for source to send event')
+                ioState.push(row.Slave_IO_State);
+            if (row.Slave_SQL_Running_State !== 'Replica has read all relay log; waiting for more updates')
+                sqlState.push(row.Slave_SQL_Running_State);
         })
     }
 
@@ -261,8 +263,9 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
             return false;
         }
         let embed = {
+            "title": "",
             "footer": {
-                "text": `${systemglobal.DatabaseName} Status`,
+                "text": `${systemglobal.DatabaseName} Database`,
                 "icon_url": discordClient.guilds.get(guildID).iconURL
             },
             "timestamp": (new Date().toISOString()) + "",
@@ -291,8 +294,12 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
         if (alarminhibited)
             warnings.push('⚠ Alarms are inhibited! Please re-enable!');
 
+        if (faults.length === 0 && warnings.length === 0) {
+            embed.title = `✅ Database is operating normally`
+        }
         if (warnings.length > 0) {
             embed.color = 16771840
+            embed.title = `🔶 Possible Issues Detected`
             embed.fields.unshift({
                 "name": `⚠ Active Warnings`,
                 "value": warnings.join('\n').substring(0, 1024)
@@ -300,13 +307,11 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
         }
         if (faults.length > 0) {
             embed.color = 16711680
+            embed.title = `🔶 Active Faults Detected`
             embed.fields.unshift({
                 "name": `⛔ Active Alarms`,
                 "value": faults.join('\n').substring(0, 1024)
             })
-        }
-        if (faults.length === 0 && warnings.length === 0) {
-
         }
 
         if (input && input.sqlState.length > 0) {
