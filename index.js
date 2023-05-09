@@ -276,7 +276,7 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
             warnings.push('⚠ Alarms are inhibited! Please re-enable!');
 
         if (faults.length === 0 && warnings.length === 0) {
-            embed.title = `✅ Database is operating normally`
+            embed.title = `✅ Database is Operating Normally`
         }
         if (warnings.length > 0) {
             embed.color = 16771840
@@ -288,7 +288,7 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
         }
         if (faults.length > 0) {
             embed.color = 16711680
-            embed.title = `⛔ Active Faults Detected`
+            embed.title = `❌ Active Faults Detected`
             embed.fields.unshift({
                 "name": `⛔ Active Alarms`,
                 "value": faults.join('\n').substring(0, 1024)
