@@ -115,12 +115,8 @@ async function updateIndicators() {
     let ioState = [];
     let sqlState = [];
     let errors = [];
-    if (!addUptimeWarning && process.uptime() <= 15 * 60) {
-        watchDogWarnings.push(`🔕 Watchdog system was reset <t:${bootTime}:R>!`)
-        addUptimeWarning = true
-    }
     if (databaseStatus.rows.length === 0) {
-        watchDogFaults.push(`🚨 No replication masters!`)
+        watchDogFaults.push(`🚨 No replication hosts/channels!`)
     } else {
         sqlNoResponse = false;
         await databaseStatus.rows.forEach(row => {
