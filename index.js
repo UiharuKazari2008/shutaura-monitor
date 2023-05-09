@@ -299,7 +299,7 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
             input.errors.map(e => {
                 embed.fields.push({
                     "name": `❌ ${(e[1] === 1) ? 'SQL ' : (e[1] === 2) ? 'I/O ' : ''}Error Log (${e[0]})`,
-                    "value": `\`\`\`\n${e[2].join('\n')}\`\`\``.substring(0, 1024)
+                    "value": `\`\`\`\n${e[2]}\`\`\``.substring(0, 1024)
                 })
             })
         }
@@ -307,7 +307,7 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
             input.sqlState.map(e => {
                 embed.fields.push({
                     "name": `⚙️ SQL Status (${e[0]})`,
-                    "value": `\`\`\`\n${e[1].join('\n')}\`\`\``.substring(0, 1024)
+                    "value": `\`\`\`\n${e[1]}\`\`\``.substring(0, 1024)
                 })
             })
         }
@@ -315,7 +315,7 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
             input.ioState.map(e => {
                 embed.fields.push({
                     "name": `💾 I/O Status (${e[0]})`,
-                    "value": `\`\`\`\n${e[1].join('\n')}\`\`\``.substring(0, 1024)
+                    "value": `\`\`\`\n${e[1]}\`\`\``.substring(0, 1024)
                 })
             })
         }
