@@ -296,7 +296,7 @@ async function updateStatus(input, forceUpdate, guildID, channelID) {
         }
 
         if (input && input.errors.length > 0) {
-            input.error.map(e => {
+            input.errors.map(e => {
                 embed.fields.push({
                     "name": `❌ ${(e[1] === 1) ? 'SQL ' : (e[1] === 2) ? 'I/O ' : ''}Error Log (${e[0]})`,
                     "value": `\`\`\`\n${e[2].join('\n')}\`\`\``.substring(0, 1024)
